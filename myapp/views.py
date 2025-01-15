@@ -1,15 +1,20 @@
+from django.core.cache import cache
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework import status
-from .models import Book, Profile, Post, Notification, Message, Discussion, Comment, Author, CustomUser
-from .serializers import ProfileSerializer, PostSerializer, NotificationSerializer, MessageSerializer, DiscussionSerializer, CommentSerialier, BookSerializer, CustomUserSerializer, AuthorSerializer
+from .models import Book, Profile, Post, Notification, Message, Discussion, Comment, Author, CustomUser, ReadingProgress
+from .serializers import ProfileSerializer, PostSerializer, NotificationSerializer, MessageSerializer, DiscussionSerializer, CommentSerialier, BookSerializer, CustomUserSerializer, AuthorSerializer, ReadingProgressSerializer
 from django.shortcuts import get_object_or_404
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.http import HttpResponse
+import ebooklib
+from ebooklib import epub
+import xmltodict
+
 
 
 
@@ -214,6 +219,70 @@ class UserSearchListView(APIView):
         serializer = CustomUserSerializer(users, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
+    
+
+class BookUploadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = BookSerializer(data=request.data)
+        if serializer.is_valed():
+            serializer.save(uploaded_by=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+
+class BookDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, book_id):
+        cache_key = f'book_{book_id}'
+        book = cache.get(cache_key)
+        if not book:
+            book = Book.objects.get(id=book_id)
+            cache.set(cache_key, book, timeout=60*15)
+            serializer = BookSerializer(book)
+            return Response(serializer.data)
+
+    
+
+class ReadingProgressView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, book_id):
+        cache_key = f'reading_progress_{request.user.id}_{book_id}'
+        progress = cache.get(cache_key)
+        if not progress:
+            progress = ReadingProgress.objects.filter(user=request.user, book_id=book_id).first()
+        if progress:
+            cache.set(cache_key, progress, timeout=60*15)
+        if progress:
+            serializer = ReadingProgressSerializer(progress)
+            return Response(serializer.data)
+        return Response({'detail': 'No progress found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    def post(self, request, book_id):
+        data = request.data
+        data['user'] = request.user.id
+        data['book'] = book_id  
+        serializer = ReadingProgressSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def put(self, request, book_id):
+        progress = ReadingProgress.objects.filter(user=request.user, book_id=book_id).first()
+        if not progress:
+            return Response({'detail': 'No progress found'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = ReadingProgressSerializer(progress, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+          
+
+
     
 
     

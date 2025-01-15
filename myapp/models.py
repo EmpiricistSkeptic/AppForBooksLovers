@@ -37,9 +37,19 @@ class Book(models.Model):
     cover = models.ImageField(upload_to='book_covers/', blank=True, null=True)
     ratings = models.FloatField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
+    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    file = models.FileField(upload_to='books/')
 
     def __str__(self):
         return self.title
+
+
+class ReadingProgress(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    book = models.ForeignKey(Book, on_delete=models.CASCADE)
+    current_page = models.IntegerField(default=1)
+    last_accessed = models.DateTimeField(auto_now=True)
     
 
 
@@ -96,6 +106,7 @@ class Author(models.Model):
     picture = models.ImageField(upload_to='authors_pictures/', blank=True, null=True)
 
     
+
 
 
 

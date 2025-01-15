@@ -1,6 +1,6 @@
 from djoser.serializers import UserSerializer
 from rest_framework import serializers
-from .models import Profile, Book, Post, Notification, Message, Discussion, Comment, Author, AbstractUser
+from .models import Profile, Book, Post, Notification, Message, Discussion, Comment, Author, AbstractUser, ReadingProgress
 
 class BookSerializer(serializers.ModelSerializer):
     class Meta:
@@ -65,5 +65,11 @@ class CommentSerialier(serializers.ModelSerializer):
 class AuthorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Author
+        fields = '__all__'
+
+
+class ReadingProgressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReadingProgress
         fields = '__all__'
 
