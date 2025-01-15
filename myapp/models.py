@@ -37,9 +37,9 @@ class Book(models.Model):
     cover = models.ImageField(upload_to='book_covers/', blank=True, null=True)
     ratings = models.FloatField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
-    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE)
-    uploaded_at = models.DateTimeField(auto_now_add=True)
-    file = models.FileField(upload_to='books/')
+    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    file = models.FileField(upload_to='books/', null=True, blank=True)
 
     def __str__(self):
         return self.title
