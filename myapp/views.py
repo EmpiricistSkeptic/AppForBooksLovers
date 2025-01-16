@@ -236,13 +236,48 @@ class BookDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, book_id):
-        cache_key = f'book_{book_id}'
-        book = cache.get(cache_key)
-        if not book:
-            book = Book.objects.get(id=book_id)
-            cache.set(cache_key, book, timeout=60*15)
-            serializer = BookSerializer(book)
-            return Response(serializer.data)
+        cache_key = f'book_content_{book_id}'
+        content = cache.get(cache_key)
+        if not content:
+            try:
+                book = Book.objects.get(id=book_id)
+                file_path = book.file.path
+                content = self.extract_content(file_path)
+                cache.set(cache_key, book, timeout=60*15)
+            except Book.DoesNotExist:
+                return Response({'detail': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
+            
+        serializer = BookSerializer(book)
+        response_data = serializer.data['content'] = content
+        return Response(response_data)
+    
+    def extract_content(self, file_path):
+        extension = file_path.split('.')[-1].lower()
+        if extension == 'pdf':
+            return self.extract_pdf_content(file_path)
+        elif extension == 'epub':
+            return self.extract_epub_content(file_path)
+        elif extension == 'fb2':
+            return self.extract_fb2_content(file_path)
+        else:
+            return "Unsupported file format"
+
+
+class BookUpdateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request, book_id):
+        try:
+            book = Book.objects.get(id=book)
+            serializer = BookSerializer(Book, data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                cache_key = f'book_{book_id}'
+                cache.delete(cache_key)
+                return Response(serializer.data)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Book.DoesNotExist:
+            return Response({'detail': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
 
     
 
