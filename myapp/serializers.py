@@ -1,6 +1,6 @@
 from djoser.serializers import UserSerializer
 from rest_framework import serializers
-from .models import Profile, Book, Post, Notification, Message, Discussion, Comment, Author, AbstractUser, ReadingProgress
+from .models import Profile, Book, Post, Notification, Message, Discussion, Comment, Author, AbstractUser, ReadingProgress, ReadingRoom, UserReadingProgress, ChatMessage
 
 class BookSerializer(serializers.ModelSerializer):
     class Meta:
@@ -73,3 +73,21 @@ class ReadingProgressSerializer(serializers.ModelSerializer):
         model = ReadingProgress
         fields = '__all__'
 
+
+
+class ReadingRoomSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ReadingRoom
+        fields = ['id', 'name', 'book', 'users']
+
+
+class UserReadingProgressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserReadingProgress
+        fields = ['user', 'current_page', 'last_updated']
+
+
+class ChatMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ChatMessage
+        fields = ['user', 'message', 'timestamp']

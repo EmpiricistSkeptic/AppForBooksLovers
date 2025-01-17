@@ -106,7 +106,27 @@ class Author(models.Model):
     picture = models.ImageField(upload_to='authors_pictures/', blank=True, null=True)
 
     
+class ReadingRoom(models.Model):
+    name = models.CharField(max_length=100)
+    book = models.ForeignKey(Book, on_delete=models.CASCADE)
+    users = models.ManyToManyField(User)
+    created_at = models.DateTimeField(auto_now_add=True)
 
+class UserReadingProgress(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    room = models.ForeignKey(ReadingRoom, on_delete=models.CASCADE)
+    current_page = models.IntegerField(default=0)
+    last_updated = models.DateTimeField(auto_now=True)
+
+
+class ChatMessage(models.Model):
+    room = models.ForeignKey(ReadingRoom, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    message = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+
+    
 
 
 

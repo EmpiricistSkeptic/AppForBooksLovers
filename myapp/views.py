@@ -5,8 +5,8 @@ from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework import status
-from .models import Book, Profile, Post, Notification, Message, Discussion, Comment, Author, CustomUser, ReadingProgress
-from .serializers import ProfileSerializer, PostSerializer, NotificationSerializer, MessageSerializer, DiscussionSerializer, CommentSerialier, BookSerializer, CustomUserSerializer, AuthorSerializer, ReadingProgressSerializer
+from .models import Book, Profile, Post, Notification, Message, Discussion, Comment, Author, CustomUser, ReadingProgress, ReadingRoom, UserReadingProgress, ChatMessage
+from .serializers import ProfileSerializer, PostSerializer, NotificationSerializer, MessageSerializer, DiscussionSerializer, CommentSerialier, BookSerializer, CustomUserSerializer, AuthorSerializer, ReadingProgressSerializer, ReadingRoomSerializer, UserReadingProgressSerializer, ChatMessageSerializer
 from django.shortcuts import get_object_or_404
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -315,13 +315,58 @@ class ReadingProgressView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-          
 
 
+class CreateRoomView(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request):
+        data = request.data
+        room = ReadingRoom.objects.create(name=data['name'], book_id=data['book_id'])
+        room.users.add(request.user)
+        return Response({'room_id': room.id}, status=status.HTTP_201_CREATED)
+
+
+class JoinRoomView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, room_id):
+        room = ReadingRoom.objects.get(id=room_id)
+        room.users.add(request.user)
+        return Response({'message': 'Joined the room'}, status=status.HTTP200_OK)
     
 
+class UpdateProgressView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, room_id):
+        data = request.data
+        progress, created = UserReadingProgress.objects.get_or_create(user=request.user, room_id=room_id)
+        progress.current_page = data['current_page']
+        progress.save()
+        return Response({'message': 'Progress updated'}, status=status.HTTP_200_OK)
+
+
+class GetRoomProgressView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, room_id):
+        progress = UserReadingProgress.objects.filter(room_id=room_id)
+        serializer = UserReadingProgressSerializer(progress, mant=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
 
+class ChatView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, room_id):
+        data = request.data
+        message = ChatMessage.objects.create(room_id=room_id, user=request.user, message=data['message'])
+        return Response({'message': 'Message sent'}, status=status.HTTP_201_CREATED)
+    
+    def get(self, request, room_id):
+        message = ChatMessage.objects.filter(room_id=room_id).order_by('timestamp')
+        serializer = ChatMessageSerializer(message, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 

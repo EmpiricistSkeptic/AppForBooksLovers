@@ -21,4 +21,9 @@ urlpatterns = [
     path('comments/<int:discussion_id>/', views.CommentListView.as_view(), name='comment-list'),
     path('messages/', views.MessageListView.as_view(), name='message-list'),
     path('search/users/', views.UserSearchListView.as_view(), name='search-users'),
+    path('rooms/create/', views.CreateRoomView.as_view(), name='create_room'),
+    path('rooms/<int:room_id>/join/', views.JoinRoomView.as_view(), name='join_room'),
+    path('rooms/<int:room_id>/update_progress/', views.UpdateProgressView.as_view(), name='update_progress'),
+    path('rooms/<int:room_id>/progress/', views.GetRoomProgressView.as_view(), name='get_room_progress'),
+    path('rooms/<int:room_id>/chat/', views.ChatView.as_view(), name='chat'),  
 ]
