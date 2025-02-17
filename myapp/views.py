@@ -42,17 +42,21 @@ class BookListView(APIView):
         
 
 
-class ProfileListView(APIView):
+class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
+    def get_object(self):
+
+        return get_object_or_404(Profile, user=self.request.user)
+
     def get(self, request):
-        profile = get_object_or_404(Profile, user=request.user)
+        profile = self.get_object
         serializer = ProfileSerializer(profile)
 
         return Response(serializer.data)
     
     def patch(self, request, *args, **kwargs):
-        profile = get_object_or_404(Profile, user=request.user)
+        profile = self.get_object
         serializer = ProfileSerializer(profile, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -64,9 +68,17 @@ class AddFavouriteBookView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, book_id):
-        book = Book.objects.get(id=book_id)
-        request.user.profile.favourite_books.add(book)
-        return Response({'message': 'Book added to favourites.'})
+
+        book = get_object_or_404(Book, id=book_id)
+        profile = request.user.profile
+        
+        if profile.favourite_books.filter(pk=book.pk).exists():
+            return Response({'message': 'Book is already in favourites.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        profile.favourite_books.add(book)
+        
+        return Response({'message': 'Book added to favourites.'}, status=status.HTTP_200_OK)
+
 
 
 class PostListCreateView(APIView):
@@ -81,7 +93,7 @@ class PostListCreateView(APIView):
         serializer = PostSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save(author=request.user)
-            return Response(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     
@@ -89,15 +101,27 @@ class FollowUserView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, username):
-        try:
-            user_to_follow = User.objects.get(username=username)
-            profile = Profile.objects.get(user=request.user)
-            profile.following.add(user_to_follow.profile)
-            return Response({'status': 'following'}, status=status.HTTP_200_OK)
-        except User.DoesNotExist:
-            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        user_to_follow = get_object_or_404(User, username=username)
+
+        if user_to_follow == request.user:
+            return Response(
+                {'error': "You cannot follow yourself."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        profile = request.user.profile
+
+        if profile.following.filter(pk=user_to_follow.profile.pk).exists():
+            return Response(
+                {'message': "Already following this user."},
+                status=status.HTTP_400_BAD_REQUETS
+            )
+        
+        profile.following.add(user_to_follow.profile)
+        return Response(
+            {'status': 'following'},
+            status=status.HTTP_200_OK
+        )
+
 
 class NotificationListView(APIView):
     permission_classes = [IsAuthenticated]
