@@ -4,7 +4,7 @@ import time
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.exceptions import ValidationError
 from django.contrib.auth import get_user_model
-from .models import Profile, Book, CustomUser, ReadingProgress, Post, Notification
+from .models import Profile, Book, CustomUser, ReadingProgress, Post, Notification, Message, Discussion, Comment, Author, ReadingRoom, UserReadingProgress, ChatMessage
 
 
 User = get_user_model()
@@ -267,3 +267,217 @@ class NotificationModelTets(TestCase):
             messsge="Test message"
         )
         self.assertIsNone(notification.post)
+
+class MessageModelTest(TestCase):
+    def setUp(self):
+        self.recipient = User.objects.create_user(username='recipient', password='testpass')
+        self.sender = User.objects.create_user(username='sender', password='testpass')
+        
+    def test_str_method_returns_correct_string(self):
+        message = Message.objects.create(
+            recipient=self.recipient,
+            sender=self.sender,
+            content="Test Message"
+        )
+        expected_str = f"Message from {self.sender.username} to {self.recipient.username}"
+        self.assertEqual(str(message), expected_str)
+
+    def test_created_at_auto_set(self):
+        message = Message.objects.create(
+            recipient=self.recipient,
+            sender=self.sender,
+            content="Test message"
+        )
+        self.assertIsNotNone(message.created_at)
+        now_time = timezone.now()
+        self.assertLessEqual((now_time - message.created_at).total_seconds(), 1)
+
+    def test_default_is_read(self):
+        message = Message.objects.create(
+            recipient=self.recipient,
+            sender=self.sender,
+            content="Test Message"
+        )
+        self.assertFalse(message.is_read)
+
+
+class DiscussionModelTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='discussion_creator', password='testpass')
+        self.book = Book.objects.create(title='Test Title', description='Test Description', genre='Test Genre', author='Test Author')
+
+
+    def test_str_method_returns_correct_string(self):
+        discussion = Discussion.objects.create(
+            book=self.book,
+            title="Test title",
+            created_by=self.user
+        )
+        self.assertEqual(str(discussion), "Test discussion")
+
+    def test_created_at_auto_set(self):
+        discussion = Discussion(
+            book=self.book,
+            title="Book Discussion",
+            created_by=self.user
+        )
+        self.assertIsNotNone(discussion.created_at)
+        now_time = timezone.now()
+        self.assertLessEqual((now_time - discussion.created_at).total_seconds(), 1)
+
+
+
+class CommentModelTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='commenter', password='testpass')
+        self.book = Book.objects.create(
+            title="Test title",
+            description="Test Description",
+            author="Test Author",
+            genre="Test genre"
+        )
+        self.discussion = Discussion.objects.create(
+            book=self.book,
+            title='Test title',
+            created_by=self.user
+        )
+
+    def test_comment_creation_and_relationship(self):
+        comment = Comment.objects.create(
+            discussion=self.discussion,
+            content="Test Content",
+            created_by=self.user
+        )
+        self.assertIsNotNone(comment.created_at)
+        now_time = timezone.now()
+        self.assertLessEqual((now_time - comment.created_at).total_seconds(), 1)
+        self.assertEqual(comment.content, "Test Content")
+        self.assertIn(comment, self.discussion.comments.all())
+
+class AuthorModelTest(TestCase):
+    def test_author_creation_without_picture(self):
+        author = Author.objects.create(
+            name="Test name",
+            biography="Test biography"
+        )
+        self.assertEqual(author.name, "Test name")
+        self.assertEqual(author.biography, "Test biography")
+        self.assertFalse(author.picture)
+
+    def test_author_creation_with_picture(self):
+        image_file = SimpleUploadedFile(
+            "test_author.jpg",
+            b"fake_image_data",
+            content_type="image/jpeg"
+        )
+        author = Author.objects.create(
+            name="Test name",
+            biography="Test biography",
+            picture=image_file
+        )
+        self.assertEqual(author.name, "Test name")
+        self.assertTrue(author.picture)
+
+class ReadingRoomModelTest(TestCase):
+    def setUp(self):
+        self.user1 = User.objects.create_user(username="testusername1", password="testpass")
+        self.user2 = User.objects.create_user(username="testusername2", password="testpass")
+
+        self.book = Book.objects.create(
+            title="Test title",
+            desctiprion="Test description",
+            genre="Test genre",
+            author="Test author"
+        )
+
+    def test_reading_room_creation(self):
+        room = ReadingRoom.objects.create(
+            name="Test name",
+            book=self.book
+        )
+        self.assertEqual(room.name, "Test name")
+        self.assertEqual(room.book, self.book)
+        self.assertIsNotNone(room.created_at)
+        self.assertEqual(room.users.count(), 0)
+
+    def test_created_at_auto_set(self):
+        room = ReadingRoom.objects.create(name="Test name", book=self.book)
+        now_time = timezone.now()
+        self.assertLessEqual((now_time - room.created_at).total_seconds(), 1)
+
+    def test_add_users_to_reading_room(self):
+        room = ReadingRoom.objects.create(name="Test name", book=self.book)
+        room.users.add(self.user1, self.user2)
+        self.assertEqual(room.users.count(), 2)
+        self.assertIn(self.user1, room.users.all())
+        self.assertIn(self.user2, room.users.all())
+
+
+class UserReadingProgressModelTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="testuser", password="testpass")
+        self.room = ReadingRoom.objects.create(name="Test name", book=self.book)
+        self.book = Book.objects.create(
+            title="Test title",
+            description="Tets description",
+            genre="Test genre",
+            author="Test author"
+        )
+
+    def test_default_current_page(self):
+        progress = UserReadingProgress.objects.create(user=self.user, room=self.room)
+        self.assertEqual(progress.current_page, 0)
+
+    def test_last_updated_auto_set(self):
+        progress = ReadingProgress.objects.create(user=self.user, room=self.room)
+        self.assertIsNotNone(progress.last_updated)
+        original_last_updated = progress.last_updated
+
+        time.sleep(1)
+        progress.current_page = 10
+        progress.save()
+        progress.refresh_from_db()
+        self.assertGreater(progress.last_updated, original_last_updated)
+
+    def test_relationships(self):
+        progress = ReadingProgress.objects.create(user=self.user, room=self.room)
+        self.assertEqual(progress.user, self.user)
+        self.assertEqual(progress.room, self.room)
+
+
+class ChatMessageModelTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="testuser", password="testpass")
+        self.room = ReadingRoom.objects.create(name="Test name", book=self.book)
+        self.book = Book.objects.create(
+            title="Test title",
+            description="Test description",
+            genre="Test genre",
+            author="Test author"
+        )
+
+    def test_chat_message_creation(self):
+        message_text = "Hello, this is a test message."
+        chat_message = ChatMessage.objects.create(
+            room=self.room,
+            user=self.user,
+            message=message_text
+        )
+        
+        self.assertEqual(chat_message.message, message_text)
+        self.assertEqual(chat_message.room, self.room)
+        self.assertEqual(chat_message.user, self.user)
+        self.assertIsNotNone(chat_message.timestamp)
+        
+    def test_timestamp_auto_set(self):
+        chat_message = ChatMessage.objects.create(user=self.user, room=self.room, message="Test message")
+        now_time = timezone.now()
+        self.assertLessEqual((now_time - chat_message.timestamp).total_seconds(), 1)
+
+
+
+
+
+
+
+
