@@ -6,7 +6,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
 from rest_framework import status
 from .models import Book, Profile, Post, Notification, Message, Discussion, Comment, Author, CustomUser, ReadingProgress, ReadingRoom, UserReadingProgress, ChatMessage
-from .serializers import ProfileSerializer, PostSerializer, NotificationSerializer, MessageSerializer, DiscussionSerializer, CommentSerialier, BookSerializer, CustomUserSerializer, AuthorSerializer, ReadingProgressSerializer, ReadingRoomSerializer, UserReadingProgressSerializer, ChatMessageSerializer
+from .serializers import ProfileSerializer, PostSerializer, NotificationSerializer, MessageSerializer, DiscussionSerializer, CommentSerializer, BookSerializer, CustomUserSerializer, AuthorSerializer, ReadingProgressSerializer, ReadingRoomSerializer, UserReadingProgressSerializer, ChatMessageSerializer
 from django.shortcuts import get_object_or_404
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -50,13 +50,13 @@ class ProfileView(APIView):
         return get_object_or_404(Profile, user=self.request.user)
 
     def get(self, request):
-        profile = self.get_object
+        profile = self.get_object()
         serializer = ProfileSerializer(profile)
 
         return Response(serializer.data)
     
     def patch(self, request, *args, **kwargs):
-        profile = self.get_object
+        profile = self.get_object()
         serializer = ProfileSerializer(profile, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -113,7 +113,7 @@ class FollowUserView(APIView):
         if profile.following.filter(pk=user_to_follow.profile.pk).exists():
             return Response(
                 {'message': "Already following this user."},
-                status=status.HTTP_400_BAD_REQUETS
+                status=status.HTTP_400_BAD_REQUEST
             )
         
         profile.following.add(user_to_follow.profile)
@@ -159,7 +159,7 @@ class DiscussionListView(APIView):
     def post(self, request, book_id):
         data = request.data.copy()
         data['book'] = book_id
-        data['created_at'] = request.user.id
+        data['created_by'] = request.user.id
         serializer = DiscussionSerializer(data=data)
         if serializer.is_valid():
             serializer.save()
@@ -174,14 +174,14 @@ class CommentListView(APIView):
 
     def get(self, request, discussion_id):
         comments = Comment.objects.filter(discussion_id=discussion_id)
-        serializer = CommentSerialier(comments, many=True)
+        serializer = CommentSerializer(comments, many=True)
         return Response(serializer.data)
     
     def post(self, request, discussion_id):
         data = request.data.copy()
         data['discussion'] = discussion_id
-        data['created_at'] = request.user.id
-        serializer = CommentSerialier(data=data)
+        data['created_by'] = request.user.id
+        serializer = CommentSerializer(data=data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -191,7 +191,7 @@ class CommentListView(APIView):
 class AuthorListView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self, reqeust):
+    def get(self, request):
         authors = Author.objects.all()
         serializer = AuthorSerializer(authors, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -239,7 +239,8 @@ class UserSearchListView(APIView):
 
         search = request.query_params.get('search', None)
         if search:
-            users = users.filter(username__icontains=search) | users(username__icontains=search)
+            users = users.filter(username__icontains=search) | users = users.filter(username__icontains=search)
+
         serializer = CustomUserSerializer(users, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
@@ -250,7 +251,7 @@ class BookUploadView(APIView):
 
     def post(self, request):
         serializer = BookSerializer(data=request.data)
-        if serializer.is_valed():
+        if serializer.is_valid():
             serializer.save(uploaded_by=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -267,12 +268,14 @@ class BookDetailView(APIView):
                 book = Book.objects.get(id=book_id)
                 file_path = book.file.path
                 content = self.extract_content(file_path)
-                cache.set(cache_key, book, timeout=60*15)
+                cache.set(cache_key, content, timeout=60*15)
             except Book.DoesNotExist:
                 return Response({'detail': 'Book not found'}, status=status.HTTP_404_NOT_FOUND)
             
         serializer = BookSerializer(book)
-        response_data = serializer.data['content'] = content
+        response_data = serializer.data
+        response_data['content'] = content
+
         return Response(response_data)
     
     def extract_content(self, file_path):
@@ -292,8 +295,8 @@ class BookUpdateView(APIView):
 
     def put(self, request, book_id):
         try:
-            book = Book.objects.get(id=book)
-            serializer = BookSerializer(Book, data=request.data)
+            book = Book.objects.get(id=book_id)
+            serializer = BookSerializer(book, data=request.data)
             if serializer.is_valid():
                 serializer.save()
                 cache_key = f'book_{book_id}'
@@ -356,7 +359,7 @@ class JoinRoomView(APIView):
     def post(self, request, room_id):
         room = ReadingRoom.objects.get(id=room_id)
         room.users.add(request.user)
-        return Response({'message': 'Joined the room'}, status=status.HTTP200_OK)
+        return Response({'message': 'Joined the room'}, status=status.HTTP_200_OK)
     
 
 class UpdateProgressView(APIView):
@@ -375,7 +378,7 @@ class GetRoomProgressView(APIView):
 
     def get(self, request, room_id):
         progress = UserReadingProgress.objects.filter(room_id=room_id)
-        serializer = UserReadingProgressSerializer(progress, mant=True)
+        serializer = UserReadingProgressSerializer(progress, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
 

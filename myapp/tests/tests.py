@@ -98,7 +98,7 @@ class ProfileModelTest(TestCase):
 
 class BookModelTest(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username='tetsuser', password='testpass')
+        self.user = User.objects.create_user(username='testuser', password='testpass')
 
     def create_book(self, **kwargs):
         defaults = {
@@ -473,7 +473,6 @@ class ChatMessageModelTest(TestCase):
         chat_message = ChatMessage.objects.create(user=self.user, room=self.room, message="Test message")
         now_time = timezone.now()
         self.assertLessEqual((now_time - chat_message.timestamp).total_seconds(), 1)
-
 
 
 
